@@ -1,28 +1,28 @@
+using System.Diagnostics;
 using System.Net.Sockets;
 using Grpc.Net.Client;
 using GrpcTests.Services;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 namespace GrpcTests.ClientTest;
 
 [TestFixture]
-public class SingleProcess : TestBase
+public class SubProcessServerOnSocket : TestBase
 {
   protected override async Task StartServerAsync()
   {
     Console.WriteLine($"Creating server for socket {_socketPath}");
-    _server = await CreateAndStartServer(_socketPath);
+    await CreateAndStartServer(_socketPath).ConfigureAwait(false);
+
   }
 
   protected override async Task StopServerAsync()
   {
-    if (_server is not null) 
-      await _server.StopAsync().ConfigureAwait(false);
+    if (_serverProcess is not null) 
+      _serverProcess.StandardInput.Close();
+
+    if (_serverTask is not null) 
+      await _serverTask;
   }
 
   protected override Task<Greeter.GreeterClient> BuildClientAsync()
@@ -39,30 +39,51 @@ public class SingleProcess : TestBase
   }
 
   private readonly string _socketPath = GetNewSocketPath();
-  private WebApplication? _server;
   private GrpcChannel? _channel;
+  private Process? _serverProcess;
+  private Task? _serverTask;
 
-  private static async Task<WebApplication> CreateAndStartServer(string socketPath)
+  private async Task CreateAndStartServer(string socketPath)
   {
-    var builder = WebApplication.CreateBuilder();
-    builder.Logging.AddConsole();
-    builder.Services.AddGrpc();
-    builder.WebHost.ConfigureKestrel(options =>
+    _serverProcess = new Process
     {
-      options.ListenUnixSocket(socketPath, listenOptions =>
+      StartInfo = new ProcessStartInfo
       {
-        listenOptions.Protocols = HttpProtocols.Http2;
-      });
-    });
-    //builder.Logging.AddFilter("Grpc", LogLevel.Warning);
-    builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
+        FileName = "GrpcTests.Server.exe",
+        ArgumentList =
+        {
+          "-s",
+          socketPath,
+        },
+        RedirectStandardError = true,
+        RedirectStandardOutput = true,
+        RedirectStandardInput = true,
+        UseShellExecute = false,
+      },
+    }; 
 
-    var server = builder.Build();
+    var outputReaderTask = Task.Factory.StartNew(async () =>
+    {
+      while (!_serverProcess.StandardOutput.EndOfStream)
+      {
+        Console.WriteLine(await _serverProcess.StandardOutput.ReadLineAsync());
+      }
+    }, TaskCreationOptions.LongRunning).Unwrap();
 
-    server.MapGrpcService<GreeterService>();
+    var errorReaderTask = Task.Factory.StartNew(async () =>
+    {
+      while (!_serverProcess.StandardError.EndOfStream)
+      {
+        await Console.Error.WriteLineAsync(await _serverProcess.StandardError.ReadLineAsync());
+      }
+    }, TaskCreationOptions.LongRunning).Unwrap();
 
-    await server.StartAsync(CancellationToken.None).ConfigureAwait(false);
-    return server;
+    _serverTask = Task.WhenAll(outputReaderTask, errorReaderTask);
+
+    _serverProcess.Start();
+
+    // wait for 5 second to allow the server to start listening on the socket.
+     await Task.Delay(5000);
   }
   private static Greeter.GreeterClient GreeterClient(string socketPath, out GrpcChannel channel)
   {
@@ -74,7 +95,7 @@ public class SingleProcess : TestBase
         var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         try
         {
-          await socket.ConnectAsync(udsEndPoint, token);
+          await socket.ConnectAsync(udsEndPoint, token).ConfigureAwait(false);
           return new NetworkStream(socket, true);
         }
         catch
@@ -104,6 +125,6 @@ public class SingleProcess : TestBase
 
     return socketPath;
   }
-
-
 }
+
+

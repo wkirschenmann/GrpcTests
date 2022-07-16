@@ -10,15 +10,15 @@ the durations of the tests. A value bigger than 2 minutes and 30
 seconds is recommended since it corresponds to the default value 
 of some network timeouts.
 
-All tests are written and described in this file. The GRPC 
-communication use Unix Domain Sockets (or their Windows equivalent) 
-instead of network support. The tests are executed by two other 
+All tests are written and described in this file. The tests are executed by two other 
 classes inheriting from `GrpcTests.ClientTest.TestBase`:
 
-* `GrpcTests.ClientTest.SingleProcess` launches both the 
- GRPC server and client inside the same process.
-* `GrpcTests.ClientTest.SubProcessServer` launches the 
- GRPC server in a subprocess.
+* `GrpcTests.ClientTest.SingleProcess` launches both the GRPC server
+  and client inside the same process. This test class uses Unix 
+  Domain Socket (or their Windows equivalent) to transport the data.
+* `GrpcTests.ClientTest.SubProcessServer` launches the GRPC server 
+  in a subprocess. This test class uses Unix Domain Socket (or 
+  their Windows equivalent) to transport the data.
 
 
 

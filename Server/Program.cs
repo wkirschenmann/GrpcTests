@@ -3,17 +3,15 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using CommandLine;
 using GrpcTests.Server;
 using GrpcTests.Services;
+using static System.String;
 
-var socketPath = string.Empty;
+var socketPath = Empty;
 
 Parser.Default.ParseArguments<Options>(args)
   .WithParsed(o =>
   {
     socketPath = o.SocketPath;
   });
-
-if (string.IsNullOrEmpty(socketPath))
-  throw new ArgumentException("Socket path has not be initialized.");
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,7 +25,15 @@ builder.Logging.AddConsole();
 builder.Services.AddGrpc();
 builder.WebHost.ConfigureKestrel(options =>
 {
-  options.ListenUnixSocket(socketPath, listenOptions =>
+  if (socketPath != Empty)
+  {
+    options.ListenUnixSocket(socketPath, listenOptions =>
+    {
+      listenOptions.Protocols = HttpProtocols.Http2;
+    });
+  }
+
+  options.ListenLocalhost(80, listenOptions =>
   {
     listenOptions.Protocols = HttpProtocols.Http2;
   });
