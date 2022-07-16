@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+
+package GrpcTests.Services;
+
+// The greeting service definition.
+service Greeter {
+	// Sends a greeting
+	rpc SayHello (HelloRequest) returns (HelloReply);
+	// Sends a greeting stream and get a reply for each of them
+	rpc SayHelloStream (stream HelloRequest) returns (stream HelloReply);
+	// Sends a greeting and get an reply after a while
+	rpc SayHelloLong (HelloLongRequest) returns (HelloReply);
+	// Opens a stream an reply after a while
+	rpc SayHelloLongStream (stream HelloLongRequest) returns (stream HelloReply);
+}
+
+// The request message containing the user's name.
+message HelloRequest {
+	string name = 1;
+}
+
+// The request message containing the user's name and request time.
+message HelloLongRequest {
+	string name = 1;
+	int32 waiting_time=2;
+}
+
+// The response message containing the greetings.
+message HelloReply {
+  string message = 1;
+}
