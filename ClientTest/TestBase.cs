@@ -17,7 +17,7 @@ public abstract class TestBase
   /// <summary>
   /// Defines the duration of each test in this class.
   /// </summary>
-  public readonly TimeSpan TestDuration = TimeSpan.FromSeconds(5);
+  public readonly TimeSpan TestDuration = TimeSpan.FromSeconds(300);
 
   /// <summary>
   /// Starts the server used for the tests. When the task is completed, the server should be ready to receive requests.
